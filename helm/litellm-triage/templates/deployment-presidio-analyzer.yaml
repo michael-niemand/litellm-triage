@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-presidio-analyzer
+  labels:
+    {{- include "litellm-triage.presidio-analyzer.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.presidioAnalyzer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "litellm-triage.presidio-analyzer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "litellm-triage.presidio-analyzer.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: presidio-analyzer
+          image: "{{ .Values.presidioAnalyzer.image.repository }}:{{ .Values.presidioAnalyzer.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.presidioAnalyzer.resources | nindent 12 }}

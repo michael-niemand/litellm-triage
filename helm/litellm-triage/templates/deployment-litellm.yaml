@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-litellm
+  labels:
+    {{- include "litellm-triage.litellm.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.litellm.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "litellm-triage.litellm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "litellm-triage.litellm.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      initContainers:
+        - name: install-triage
+          image: python:3.11-slim
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - pip
+            - install
+            - --target=/pkg
+            - git+https://github.com/michael-niemand/litellm-triage.git
+          volumeMounts:
+            - name: triage-pkg
+              mountPath: /pkg
+      containers:
+        - name: litellm
+          image: "{{ .Values.litellm.image.repository }}:{{ .Values.litellm.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - "--config"
+            - "/app/config.yaml"
+            - "--port"
+            - "4000"
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+          env:
+            - name: PYTHONPATH
+              value: /pkg
+            {{- if or .Values.apiKeys.openai (and .Values.cloudModel.apiKeySecret.name (eq .Values.cloudModel.apiKeySecret.key "openai-api-key")) }}
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "litellm-triage.apiKeySecretName" . }}
+                  key: openai-api-key
+                  optional: true
+            {{- end }}
+            {{- if or .Values.apiKeys.anthropic (and .Values.cloudModel.apiKeySecret.name (eq .Values.cloudModel.apiKeySecret.key "anthropic-api-key")) }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "litellm-triage.apiKeySecretName" . }}
+                  key: anthropic-api-key
+                  optional: true
+            {{- end }}
+            {{- if .Values.litellm.masterKey }}
+            - name: LITELLM_MASTER_KEY
+              value: {{ .Values.litellm.masterKey | quote }}
+            {{- end }}
+            {{- with .Values.litellm.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.litellm.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+            - name: triage-pkg
+              mountPath: /pkg
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "litellm-triage.fullname" . }}-config
+        - name: triage-pkg
+          emptyDir: {}

@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-ollama
+  labels:
+    {{- include "litellm-triage.ollama.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "litellm-triage.ollama.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "litellm-triage.ollama.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.ollama.gpu.enabled }}
+      {{- if not .Values.ollama.gpu.useAffinity }}
+      nodeSelector:
+        {{- toYaml .Values.ollama.gpu.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.ollama.gpu.useAffinity }}
+      affinity:
+        {{- toYaml .Values.ollama.gpu.affinity | nindent 8 }}
+      {{- end }}
+      tolerations:
+        {{- toYaml .Values.ollama.gpu.tolerations | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: pull-models
+          image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              ollama serve &
+              sleep 5
+              ollama pull {{ .Values.ollama.model }}
+              ollama pull {{ .Values.ollama.classifierModel }}
+              kill %1
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          {{- if .Values.ollama.gpu.enabled }}
+          resources:
+            limits:
+              nvidia.com/gpu: {{ .Values.ollama.gpu.count }}
+          {{- end }}
+      containers:
+        - name: ollama
+          image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 11434
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- if .Values.ollama.gpu.enabled }}
+            requests:
+              cpu: {{ .Values.ollama.resources.gpu.requests.cpu }}
+              memory: {{ .Values.ollama.resources.gpu.requests.memory }}
+            limits:
+              cpu: {{ .Values.ollama.resources.gpu.limits.cpu }}
+              memory: {{ .Values.ollama.resources.gpu.limits.memory }}
+              nvidia.com/gpu: {{ .Values.ollama.gpu.count }}
+            {{- else }}
+            requests:
+              cpu: {{ .Values.ollama.resources.cpu.requests.cpu }}
+              memory: {{ .Values.ollama.resources.cpu.requests.memory }}
+            limits:
+              cpu: {{ .Values.ollama.resources.cpu.limits.cpu }}
+              memory: {{ .Values.ollama.resources.cpu.limits.memory }}
+            {{- end }}
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+      volumes:
+        - name: ollama-data
+          {{- if .Values.ollama.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "litellm-triage.fullname" . }}-ollama
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+{{- if .Values.ollama.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-ollama
+  labels:
+    {{- include "litellm-triage.ollama.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.ollama.persistence.accessMode }}
+  {{- if .Values.ollama.persistence.storageClass }}
+  storageClassName: {{ .Values.ollama.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ollama.persistence.size }}
+{{- end }}

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-presidio-anonymizer
+  labels:
+    {{- include "litellm-triage.presidio-anonymizer.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.presidioAnonymizer.service.type }}
+  ports:
+    - port: {{ .Values.presidioAnonymizer.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "litellm-triage.presidio-anonymizer.selectorLabels" . | nindent 4 }}

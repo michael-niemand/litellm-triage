@@ -1,0 +1,16 @@
+apiVersion: v2
+name: litellm-triage
+description: Content-aware privacy routing guardrail for LiteLLM — routes sensitive prompts to local models, safe ones to the cloud.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - litellm
+  - privacy
+  - llm
+  - guardrail
+  - ollama
+  - presidio
+maintainers:
+  - name: michael-niemand
+    url: https://github.com/michael-niemand
