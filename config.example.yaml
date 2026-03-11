@@ -1,0 +1,29 @@
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+
+  - model_name: ollama/llama3
+    litellm_params:
+      model: ollama/llama3
+      api_base: http://ollama:11434
+
+guardrails:
+  - guardrail_name: "triage"
+    litellm_params:
+      guardrail: litellm_triage.guardrail.TriageGuardrail
+      mode: "pre_call"
+      sensitive_model: "ollama/llama3"
+      public_model: "gpt-4o"
+      classifier: "hybrid"
+      threshold: 0.6
+      presidio_url: "http://presidio-analyzer:3000"
+      ollama_url: "http://ollama:11434"
+      ollama_classifier_model: "llama3.2:1b"
+
+litellm_settings:
+  success_callback: ["langfuse"]   # optional - add your observability backend
+
+general_settings:
+  guardrails_on_all_requests: true
