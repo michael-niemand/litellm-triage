@@ -1,0 +1,169 @@
+# Global image pull policy
+global:
+  imagePullPolicy: IfNotPresent
+
+# LiteLLM proxy
+litellm:
+  image:
+    repository: ghcr.io/berriai/litellm
+    tag: main-latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 4000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  # LiteLLM master key for auth (recommended in production)
+  masterKey: ""
+  # Extra environment variables
+  extraEnv: []
+
+# Presidio Analyzer
+presidioAnalyzer:
+  image:
+    repository: mcr.microsoft.com/presidio-analyzer
+    tag: latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Presidio Anonymizer
+presidioAnonymizer:
+  image:
+    repository: mcr.microsoft.com/presidio-anonymizer
+    tag: latest
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Ollama — local model server
+ollama:
+  image:
+    repository: ollama/ollama
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 11434
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""         # leave empty for default storage class
+    accessMode: ReadWriteOnce
+
+  # Model to pull on startup (init container)
+  # This is the model used for SENSITIVE query routing
+  model: "llama3"
+
+  # Classifier model — small/fast, used by hybrid classifier stage 2
+  classifierModel: "llama3.2:1b"
+
+  # GPU scheduling
+  gpu:
+    # Set to true to schedule Ollama on GPU nodes
+    # Requires NVIDIA device plugin on the cluster
+    enabled: false
+
+    # nodeSelector: simple label-based GPU node selection
+    # Common labels set by node feature discovery or cloud providers:
+    #   GKE:   cloud.google.com/gke-accelerator: nvidia-tesla-t4
+    #   EKS:   k8s.amazonaws.com/accelerator: nvidia-tesla-t4
+    #   AKS:   accelerator: nvidia
+    #   bare-metal with NFD: nvidia.com/gpu.present: "true"
+    nodeSelector:
+      nvidia.com/gpu.present: "true"
+
+    # nodeAffinity: flexible expression-based scheduling (used when gpu.enabled=true
+    # AND gpu.useAffinity=true; overrides nodeSelector)
+    useAffinity: false
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: nvidia.com/gpu.present
+                  operator: In
+                  values: ["true"]
+
+    # Toleration for GPU node taints (common pattern: nodes tainted nvidia.com/gpu=present:NoSchedule)
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+
+    # GPU resource limit — how many GPUs to allocate to Ollama
+    count: 1
+
+  resources:
+    cpu:
+      requests:
+        cpu: 500m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+    gpu:
+      requests:
+        cpu: 500m
+        memory: 4Gi
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+        # nvidia.com/gpu is added automatically when gpu.enabled=true
+
+# Triage guardrail config — rendered into LiteLLM configmap
+triage:
+  # Classifier strategy: presidio | local_llm | hybrid
+  classifier: hybrid
+  # Sensitivity threshold (0.0–1.0). 0.85 recommended to avoid false positives on place names.
+  threshold: "0.85"
+  # default_on: true fires the guardrail on all requests without requiring
+  # clients to pass guardrails: ["triage"] in their request body.
+  defaultOn: true
+
+# Cloud model — requests that pass the sensitivity check go here
+cloudModel:
+  # Provider model string — must be a litellm provider format, NOT a group name
+  # Examples: openai/gpt-4o, anthropic/claude-sonnet-4-5-20250929
+  model: "openai/gpt-4o"
+  apiKeySecret:
+    name: ""        # name of existing secret containing the API key
+    key: "api-key"  # key within that secret
+
+# API keys — set these to create a secret managed by the chart.
+# Leave empty if providing your own secret via cloudModel.apiKeySecret.
+apiKeys:
+  openai: ""
+  anthropic: ""
+
+# Ingress
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: litellm-triage.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

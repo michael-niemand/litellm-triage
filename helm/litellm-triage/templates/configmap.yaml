@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "litellm-triage.fullname" . }}-config
+  labels:
+    {{- include "litellm-triage.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    model_list:
+      # "Cloud" model — used for non-sensitive queries
+      - model_name: cloud-model
+        litellm_params:
+          model: {{ .Values.cloudModel.model }}
+          {{- if hasPrefix "openai/" .Values.cloudModel.model }}
+          api_key: os.environ/OPENAI_API_KEY
+          {{- else if hasPrefix "anthropic/" .Values.cloudModel.model }}
+          api_key: os.environ/ANTHROPIC_API_KEY
+          {{- end }}
+
+      # "Local" model — used for sensitive queries (Ollama, self-hosted)
+      - model_name: local-model
+        litellm_params:
+          model: ollama/{{ .Values.ollama.model }}
+          api_base: http://{{ include "litellm-triage.fullname" . }}-ollama:{{ .Values.ollama.service.port }}
+
+    guardrails:
+      - guardrail_name: "triage"
+        litellm_params:
+          guardrail: litellm_triage.guardrail.TriageGuardrail
+          mode: "pre_call"
+          default_on: {{ .Values.triage.defaultOn }}
+
+          # IMPORTANT: use provider model strings here, NOT LiteLLM group names.
+          # The hook fires inside litellm.acompletion() after group names are resolved.
+          sensitive_model: "ollama/{{ .Values.ollama.model }}"
+          public_model: "{{ .Values.cloudModel.model }}"
+
+          # Classifier strategy: "presidio" | "local_llm" | "hybrid" (recommended)
+          classifier: "{{ .Values.triage.classifier }}"
+
+          # Score threshold for sensitivity (0.0–1.0)
+          threshold: {{ .Values.triage.threshold }}
+
+          # Presidio Analyzer endpoint
+          presidio_url: "http://{{ include "litellm-triage.fullname" . }}-presidio-analyzer:{{ .Values.presidioAnalyzer.service.port }}"
+
+          # Ollama endpoint + model used for the LLM classifier stage (hybrid/local_llm)
+          ollama_url: "http://{{ include "litellm-triage.fullname" . }}-ollama:{{ .Values.ollama.service.port }}"
+          ollama_classifier_model: "{{ .Values.ollama.classifierModel }}"
+
+    litellm_settings:
+      # Optional: plug in your observability backend
+      # Triage metadata is injected into every request under metadata.triage
+      # success_callback: ["langfuse"]
+
+    general_settings:
+      guardrails_on_all_requests: true

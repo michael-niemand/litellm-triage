@@ -152,6 +152,27 @@ Every request gets triage metadata injected into `metadata.triage`, which rides 
 }
 ```
 
+## Kubernetes / Helm
+
+Deploy the full stack on Kubernetes with GPU-aware Ollama scheduling:
+
+```bash
+helm install litellm-triage ./helm/litellm-triage \
+  --set apiKeys.openai=sk-... \
+  --set cloudModel.model=openai/gpt-4o
+```
+
+With GPU support:
+
+```bash
+helm install litellm-triage ./helm/litellm-triage \
+  --set apiKeys.openai=sk-... \
+  --set ollama.gpu.enabled=true \
+  --set "ollama.gpu.nodeSelector.nvidia\.com/gpu\.present=true"
+```
+
+See [helm/litellm-triage/README.md](helm/litellm-triage/README.md) for full documentation.
+
 ## Installation
 
 ```bash
