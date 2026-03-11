@@ -1,6 +1,6 @@
 """Tests for the TriageGuardrail."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 import respx
