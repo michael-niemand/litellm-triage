@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "respx"]
+dev = ["pytest", "pytest-asyncio", "respx", "ruff"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
