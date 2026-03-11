@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Minimal test setup — no Ollama needed.
+# Uses Anthropic API for both "cloud" and "local" model slots.
+
+services:
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    ports:
+      - "5002:3000"
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./config.test.yaml:/app/config.yaml
+      - ./litellm_triage:/app/litellm_triage
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - presidio-analyzer
+    command: ["--config", "/app/config.yaml", "--port", "4000"]

@@ -1,0 +1,26 @@
+model_list:
+  # "Cloud" model — used for non-sensitive queries
+  - model_name: cloud-model
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # "Local" model — used for sensitive queries (mocked with Anthropic haiku for testing)
+  - model_name: local-model
+    litellm_params:
+      model: anthropic/claude-3-haiku-20240307
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+guardrails:
+  - guardrail_name: "triage"
+    litellm_params:
+      guardrail: litellm_triage.guardrail.TriageGuardrail
+      mode: "pre_call"
+      sensitive_model: "local-model"
+      public_model: "cloud-model"
+      classifier: "presidio"        # presidio-only: no Ollama needed
+      threshold: 0.5
+      presidio_url: "http://presidio-analyzer:3000"
+
+general_settings:
+  guardrails_on_all_requests: true
