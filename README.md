@@ -18,19 +18,19 @@ Drop it into any LiteLLM deployment as a single guardrail. Zero changes to your 
               |  └──────┬────────┘   |
               |         │ ambiguous  |
               |  ┌──────▼────────┐   |  Stage 2: local LLM semantic scan
-              |  │  Local LLM   │   |  (~200–400ms, hybrid mode only)
-              |  │  classifier  │   |  catches: implied health/legal/
+              |  │  Local LLM    │   |  (~200–400ms, hybrid mode only)
+              |  │  classifier   │   |  catches: implied health/legal/
               |  └──────┬────────┘   |  financial context without named PII
               |         │            |
               +---------|------------+
                         │
-              sensitive? │ not sensitive?
-                    ┌────┘      └────┐
-                    ▼                ▼
+             sensitive? │ not sensitive?
+                   ┌────┘      └────┐
+                   ▼                ▼
              Local Model        Cloud Model
-            (Ollama/Llama)      (GPT-4o etc.)
+            (Ollama/Llama)     (GPT-4o etc.)
               stays on          leaves your
-              your machine      infrastructure
+            your machine      infrastructure
 ```
 
 ## Quick Start (production — Ollama local model)
