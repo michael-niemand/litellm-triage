@@ -1,6 +1,6 @@
 """Configuration dataclass for LiteLLM Triage guardrail."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 

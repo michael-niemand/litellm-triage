@@ -1,6 +1,5 @@
 """Tests for the TriageGuardrail."""
 
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest

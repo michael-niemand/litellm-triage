@@ -65,7 +65,7 @@ class PresidioClassifier(BaseClassifier):
             )
             response.raise_for_status()
             results: list[dict[str, Any]] = response.json()
-        except httpx.HTTPError as e:
+        except httpx.HTTPError:
             latency_ms = (time.perf_counter() - start_time) * 1000
             return ClassifierResult(
                 is_sensitive=False,
